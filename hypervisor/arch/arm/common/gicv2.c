@@ -74,7 +74,7 @@ static int gicv2_nr_lines;
 
 static DEFINE_PER_CPU(uint8_t, gic_cpu_id);
 
-extern int vigcv2_init(uint64_t *data, int len);
+extern int vgicv2_init(uint64_t *data, int len);
 
 /* Maximum cpu interface per GIC */
 #define NR_GIC_CPU_IF 8
@@ -525,7 +525,7 @@ static int gicv2_init(int node)
 
 	spin_unlock(&gicv2_lock);
 
-	vigcv2_init(array, len);
+	vgicv2_init(array, len);
 	register_vcpu_vmodule("gicv2", gicv2_vmodule_init);
 
 	return 0;

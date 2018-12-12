@@ -402,7 +402,7 @@ int vgicv2_create_vm(void *item, void *arg)
 	return 0;
 }
 
-int vigcv2_init(uint64_t *data, int len)
+int vgicv2_init(uint64_t *data, int len)
 {
 	int i;
 	unsigned long *value = (unsigned long *)&vgicv2_info;
