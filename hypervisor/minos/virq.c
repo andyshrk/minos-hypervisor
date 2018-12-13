@@ -351,7 +351,7 @@ void clear_pending_virq(struct vcpu *vcpu, uint32_t irq)
 	 * running vcpu and excuted on the related pcpu
 	 */
 	spin_lock_irqsave(&virq_struct->lock, flags);
-	irq_update_virq(desc, VIRQ_ACTION_REMOVE);
+	irq_update_virq(vcpu, desc, VIRQ_ACTION_REMOVE);
 	if (desc->list.next != NULL)
 		list_del(&desc->list);
 
@@ -381,7 +381,7 @@ static int irq_enter_to_guest(void *item, void *data)
 			pr_error("virq is not request %d %d\n", virq->vno, virq->id);
 			virq->state = 0;
 			if (virq->id != VIRQ_INVALID_ID)
-				irq_update_virq(virq, VIRQ_ACTION_CLEAR);
+				irq_update_virq(vcpu, virq, VIRQ_ACTION_CLEAR);
 			list_del(&virq->list);
 			continue;
 		}
@@ -401,7 +401,7 @@ static int irq_enter_to_guest(void *item, void *data)
 		set_bit(id, virq_struct->irq_bitmap);
 
 __do_send_virq:
-		irq_send_virq(virq);
+		irq_send_virq(vcpu, virq);
 		virq->state = VIRQ_STATE_PENDING;
 		virq_clear_pending(virq);
 		dsb();
@@ -432,7 +432,7 @@ static int irq_exit_from_guest(void *item, void *data)
 
 	list_for_each_entry_safe(virq, n, &virq_struct->active_list, list) {
 
-		status = irq_get_virq_state(virq);
+		status = irq_get_virq_state(vcpu, virq);
 
 		/*
 		 * the virq has been handled by the VCPU, if
@@ -442,7 +442,7 @@ static int irq_exit_from_guest(void *item, void *data)
 		 */
 		if (status == VIRQ_STATE_INACTIVE) {
 			if (!virq_is_pending(virq)) {
-				irq_update_virq(virq, VIRQ_ACTION_CLEAR);
+				irq_update_virq(vcpu, virq, VIRQ_ACTION_CLEAR);
 				clear_bit(virq->id, virq_struct->irq_bitmap);
 				virq->state = VIRQ_STATE_INACTIVE;
 				list_del(&virq->list);
@@ -450,7 +450,7 @@ static int irq_exit_from_guest(void *item, void *data)
 				virq->list.next = NULL;
 				virq_struct->active_count--;
 			} else {
-				irq_update_virq(virq, VIRQ_ACTION_CLEAR);
+				irq_update_virq(vcpu, virq, VIRQ_ACTION_CLEAR);
 				list_del(&virq->list);
 				list_add_tail(&virq_struct->pending_list, &virq->list);
 			}

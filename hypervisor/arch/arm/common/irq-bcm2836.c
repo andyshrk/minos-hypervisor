@@ -253,14 +253,16 @@ static void bcm2836_unmask_irq_cpu(uint32_t irq, int cpu)
 	__bcm2836_unmask_irq(irq, cpu);
 }
 
-static int bcm2836_get_virq_state(struct virq_desc *virq)
+static int bcm2836_get_virq_state(struct vcpu *vcpu, struct virq_desc *virq)
 {
 	return 0;
 }
 
 static int bcm2836_get_virq_nr(void)
 {
-	return 0;
+	/* support max 128 virqs */
+
+	return 128;
 }
 
 static void bcm2836_send_sgi(uint32_t sgi, enum sgi_mode mode, cpumask_t *cpu)
@@ -295,13 +297,20 @@ static void bcm2836_send_sgi(uint32_t sgi, enum sgi_mode mode, cpumask_t *cpu)
 	}
 }
 
-static int bcm2836_update_virq(struct virq_desc *desc, int action)
+static int bcm2836_update_virq(struct vcpu *vcpu,
+		struct virq_desc *desc, int action)
 {
 	return 0;
 }
 
-static int bcm2836_send_virq(struct virq_desc *virq)
+static int bcm2836_send_virq(struct vcpu *vcpu, struct virq_desc *virq)
 {
+	/*
+	 * if the hardware platform is bcm2836 such
+	 * as rpi3b/rpi3b+, the native vm is using the
+	 * original bcm2836 virq controller, but the
+	 * guest vm will use vgicv2
+	 */
 	return 0;
 }
 

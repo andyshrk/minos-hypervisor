@@ -358,22 +358,22 @@ static struct irq_desc *get_irq_desc_cpu(uint32_t irq, int cpu)
 	return NULL;
 }
 
-void irq_update_virq(struct virq_desc *virq, int action)
+void irq_update_virq(struct vcpu *vcpu, struct virq_desc *virq, int action)
 {
 	if (irq_chip->update_virq)
-		irq_chip->update_virq(virq, action);
+		irq_chip->update_virq(vcpu, virq, action);
 }
 
-void irq_send_virq(struct virq_desc *virq)
+void irq_send_virq(struct vcpu *vcpu, struct virq_desc *virq)
 {
 	if (irq_chip->send_virq)
-		irq_chip->send_virq(virq);
+		irq_chip->send_virq(vcpu, virq);
 }
 
-int irq_get_virq_state(struct virq_desc *virq)
+int irq_get_virq_state(struct vcpu *vcpu, struct virq_desc *virq)
 {
 	if (irq_chip->get_virq_state)
-		return irq_chip->get_virq_state(virq);
+		return irq_chip->get_virq_state(vcpu, virq);
 
 	return 0;
 }

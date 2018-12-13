@@ -238,23 +238,21 @@ static int bcm2836_virq_write(struct vdev *vdev, gp_regs *reg,
 static int bcm_virq_create_vm(void *item, void *arg)
 {
 	struct vm *vm = item;
-	void *base;
 	struct bcm2836_virq *bcm2836;
 	struct vdev *vdev;
+	void *base;
 
 	/* if the vm is not native using vgicv2 */
 	if (!vm_is_native(vm))
 		return vgicv2_create_vm(item, arg);
 
-	base = zalloc(sizeof(struct bcm2836_virq));
-	if (!base)
+	bcm2836 = zalloc(sizeof(struct bcm2836_virq));
+	if (!bcm2836)
 		return -ENOMEM;
-
-	bcm2836 = (struct bcm2836_virq *)base;
 
 	bcm2836->iomem = get_io_page();
 	if (!bcm2836->iomem) {
-		free(base);
+		free(bcm2836);
 		return -ENOMEM;
 	}
 
@@ -291,6 +289,7 @@ static int bcm_virq_create_vm(void *item, void *arg)
 	 */
 	create_guest_mapping(vm, BCM2836_INC_BASE, (unsigned long)bcm2836->iomem,
 			PAGE_SIZE, VM_IO | VM_RO);
+	vm->inc_pdata = bcm2836;
 
 	return 0;
 }

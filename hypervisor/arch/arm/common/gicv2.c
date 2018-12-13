@@ -189,7 +189,7 @@ static int gicv2_set_irq_affinity(uint32_t irq, uint32_t pcpu)
 	return 0;
 }
 
-static int gicv2_send_virq(struct virq_desc *virq)
+static int gicv2_send_virq(struct vcpu *vcpu, struct virq_desc *virq)
 {
 	uint32_t val;
 	uint32_t pid = 0;
@@ -221,7 +221,8 @@ static int gicv2_send_virq(struct virq_desc *virq)
 	return 0;
 }
 
-static int gicv2_update_virq(struct virq_desc *desc, int action)
+static int gicv2_update_virq(struct vcpu *vcpu,
+		struct virq_desc *desc, int action)
 {
 	if (!desc || desc->id >= gicv2_nr_lrs)
 		return -EINVAL;
@@ -295,7 +296,7 @@ static void gicv2_unmask_irq_cpu(uint32_t irq, int cpu)
 	pr_warn("not support unmask irq_percpu\n");
 }
 
-int gicv2_get_virq_state(struct virq_desc *virq)
+int gicv2_get_virq_state(struct vcpu *vcpu, struct virq_desc *virq)
 {
 	uint32_t value;
 

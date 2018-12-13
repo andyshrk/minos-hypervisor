@@ -386,6 +386,7 @@ int vgicv2_create_vm(void *item, void *arg)
 	dev->vdev.write = vgicv2_mmio_write;
 	dev->vdev.deinit = vgicv2_deinit;
 	dev->vdev.reset = vgicv2_reset;
+	vm->inc_pdata = dev;
 
 	/* map the gicc memory for guest */
 	if (vm_is_native(vm)) {
@@ -396,8 +397,15 @@ int vgicv2_create_vm(void *item, void *arg)
 		size = VGICV2_GICC_GVM_SIZE;
 	}
 
-	create_guest_mapping(vm, base, vgicv2_info.gicv_base,
-			size, VM_IO);
+	/*
+	 * if the gicc base is seted indicate that
+	 * platform has a hardware gicv2, otherwise
+	 * we need to emulated the trap.
+	 */
+	if (vgicv2_info.gicc_base != 0) {
+		create_guest_mapping(vm, base,
+				vgicv2_info.gicv_base, size, VM_IO);
+	}
 
 	return 0;
 }
