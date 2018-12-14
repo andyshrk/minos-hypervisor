@@ -33,6 +33,7 @@ struct bcm2836_virq {
 	void *bcm2835_pending[NR_BANKS];
 	void *bcm2835_enable[NR_BANKS];
 	void *bcm2835_disable[NR_BANKS];
+	int bcm2835_pendings;;
 };
 
 #define vdev_to_bcm_virq(vdev) \
@@ -120,13 +121,10 @@ static int bcm2835_virq_write(struct vdev *vdev, gp_regs *reg,
 static int inline bcm2836_send_vsgi(struct vcpu *vcpu, struct vdev *vdev,
 		unsigned long offset, unsigned long *value)
 {
-	void *base;
-	uint32_t v;
 	struct vcpu *target;
 	struct vm *vm = vcpu->vm;
 	int cpu = (offset - LOCAL_MAILBOX0_SET0) / 16;
 	int sgi = __ffs((uint32_t)*value);
-	struct bcm2836_virq *dev = vdev_to_bcm_virq(vdev); 
 
 	pr_info("send vsgi %d %d\n", cpu, sgi);
 
@@ -136,13 +134,7 @@ static int inline bcm2836_send_vsgi(struct vcpu *vcpu, struct vdev *vdev,
 	target = get_vcpu_in_vm(vm, cpu);
 	if (!target)
 		return -EINVAL;
-
-	base = dev->iomem + (LOCAL_MAILBOX0_CLR0 + cpu * 16);
-
-	/* set the read and clear register */
-	v = readl_relaxed(base);
-	writel_relaxed(v | (1 << sgi), base);
-
+	
 	return send_virq_to_vcpu(target, sgi);
 }
 
@@ -237,17 +229,119 @@ static int bcm2836_virq_write(struct vdev *vdev, gp_regs *reg,
 
 static int bcm2836_inject_sgi(struct vcpu *vcpu, uint32_t virq)
 {
+	void *base;
+	uint32_t v;
+	struct vm *vm = vcpu->vm;
+	struct bcm2836_virq *dev = (struct bcm2836_virq *)vm->inc_pdata;
+
+	base = dev->iomem + (LOCAL_MAILBOX0_CLR0 + cpu * 16);
+
+	/* set the read and clear register */
+	v = readl_relaxed(base);
+	writel_relaxed(v | (1 << virq), base);
+
+	/* set the LOCAL_IRQ_MAILBOX0 bit of LOCAL_IRQ_PENDING0 */
+	base = dev->iomem + LOCAL_IRQ_PENDING0 + 4 * vcpu->vcpu_id;
+	v = readl_relaxed(base) | BIT(LOCAL_IRQ_MAILBOX0);
+	writel_relaxed(v, base);
+
 	return 0;
 }
 
 static int bcm2836_inject_ppi(struct vcpu *vcpu, uint32_t virq)
 {
+	void *base;
+	uint32_t v;
+	struct vm *vm = vcpu->vm;
+	struct bcm2836_virq *dev = (struct bcm2836_virq *)vm->inc_pdata;
+
+	virq = virq - 32;
+	if (virq == LOCAL_IRQ_GPU_FAST) {
+		pr_warn("%d irq is for bcm2835 inc\n");
+		return -EINVAL;
+	}
+
+	base = dev->iomem + LOCAL_IRQ_PENDING0 + 4 * vcpu->vcpu_id;
+	v = readl_relaxed(base) | BIT(virq);
+	writel_relaxed(v, base);
+
 	return 0;
 }
 
 static int bcm2836_inject_spi(struct vcpu *vcpu, uint32_t virq)
 {
+	int bank, index = 0, bit;
+	uint32_t v;
+	void *base;
+	struct vm *vm = vcpu->vm;
+	struct bcm2836_virq *dev = (struct bcm2836_virq *)vm->inc_pdata;
 
+	bank = HWIRQ_BANK(virq);
+	virq = virq % 32;
+	if (bank >= NR_BANKS)
+		return -EINVAL;
+
+	if (bank == 0) {
+		if (virq >= 10 && virq <= 20) {
+			pr_warn("10 - 20 virq in bank0 is for other\n");
+			return -EINVAL;
+		}
+
+		base = dev->bcm2835_pending[0];
+		bit = virq;
+	} else if (bank == 1) {
+		index = 4; 
+		switch (virq) {
+		case 19:
+		case 18:
+			index--;
+		case 10:
+			index--;
+		case 9:
+			index--;
+		case 7:
+			index--;
+			base = dev->bcm2835_pending[0];
+			bit = 10 + index;
+			break;
+		default:
+			base = dev->bcm2835_pending[1];
+			bit = virq;
+			break;
+		}
+	} else {
+		index = 5;
+		switch (virq) {
+		case 30:
+		case 25:
+			index--;
+		case 24:
+			index--;
+		case 23:
+			index--;
+		case 22:
+			index--;
+		case 21:
+			index--;
+			base = dev->bcm2835_pending[0];
+			bit = 15 + index;
+			break;
+		default:
+			base = dev->bcm2835_pending[0];
+			bit = virq;
+			break;
+		}
+	}
+
+	v = readl_relaxed(base) | BIT(bit);
+	writel_relaxed(v, base);
+
+	/* set the bcm2836 pending register BIT8 */
+	base = dev->iomem + LOCAL_IRQ_PENDING0;
+	v = readl_relaxed(base) | BIT(8);
+	writel_relaxed(v, base);
+
+	return 0;
 }
 
 int bcm2836_send_virq(struct vcpu *vcpu, uint32_t virq)

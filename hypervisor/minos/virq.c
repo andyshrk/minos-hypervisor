@@ -349,17 +349,50 @@ void clear_pending_virq(struct vcpu *vcpu, uint32_t irq)
 	/*
 	 * this function can only called by the current
 	 * running vcpu and excuted on the related pcpu
+	 *
+	 * check wether the virq is pending agagin, if yes
+	 * do not delete it from the pending list, instead
+	 * of add it to the tail of the pending list
+	 *
 	 */
 	spin_lock_irqsave(&virq_struct->lock, flags);
-	irq_update_virq(vcpu, desc, VIRQ_ACTION_REMOVE);
 	if (desc->list.next != NULL)
 		list_del(&desc->list);
 
-	desc->id = VIRQ_INVALID_ID;
+	if (virq_is_pending(desc)) {
+		list_add_tail(&virq_struct->pending_list);
+		desc->state = VIRQ_STATE_PENDING;
+		goto out;
+	}
+
 	desc->state = VIRQ_STATE_INACTIVE;
-	clear_bit(desc->id, virq_struct->irq_bitmap);
+out:
+	spin_unlock_irqrestore(&virq_struct->lock, flags);
+}
+
+uint32_t get_pending_virq(struct vcpu *vcpu)
+{
+	unsigned long flags;
+	struct virq_desc *desc;
+	struct virq_struct *virq_struct = vcpu->virq_struct;
+
+	spin_lock_irqsave(&virq_struct->lock, flags);
+	if (is_list_empty(virq_struct->pending_list)) {
+		spin_unlock_irqrestore(&virq_struct->lock, flags);
+		return BAD_IRQ;
+	}
+
+	/* get the pending virq and delete it from pending list */
+	desc = list_first_entry(&virq->pending_list,
+			struct virq_desc, list);
+	list_del(&desc->list);
+	desc->list.next = NULL;
+	desc->state = VIRQ_STATE_ACTIVE;
+	virq_clear_pending(desc);
 
 	spin_unlock_irqrestore(&virq_struct->lock, flags);
+
+	return desc->vno;
 }
 
 static int irq_enter_to_guest(void *item, void *data)
