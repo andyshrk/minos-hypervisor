@@ -305,12 +305,18 @@ static int bcm2836_update_virq(struct vcpu *vcpu,
 
 static int bcm2836_send_virq(struct vcpu *vcpu, struct virq_desc *virq)
 {
+	uint32_t irq;
+
 	/*
 	 * if the hardware platform is bcm2836 such
 	 * as rpi3b/rpi3b+, the native vm is using the
 	 * original bcm2836 virq controller, but the
-	 * guest vm will use vgicv2
+	 * guest vm will use vgicv2, vgicv2 can send
+	 * the virq when the mmio emulated
 	 */
+	if (vm_is_native(vcpu->vm))
+		bcm2836_send_virq(vcpu, virq->vno);
+
 	return 0;
 }
 
@@ -373,6 +379,11 @@ static int bcm2836_irq_init(int node)
 
 	/* init the virq device callback */
 	bcm_virq_init(0x40000000, 0x100, 0x7e00b200, 0x1000);
+
+	register_hook(bcm2836_irq_exit_from_guest,
+			MINOS_HOOK_TYPE_EXIT_FROM_GUEST);
+	register_hook(bcm2836_irq_enter_to_guest,
+			MINOS_HOOK_TYPE_ENTER_TO_GUEST);
 
 	return 0;
 }

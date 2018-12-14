@@ -235,6 +235,42 @@ static int bcm2836_virq_write(struct vdev *vdev, gp_regs *reg,
 	return 0;
 }
 
+static int bcm2836_inject_sgi(struct vcpu *vcpu, uint32_t virq)
+{
+	return 0;
+}
+
+static int bcm2836_inject_ppi(struct vcpu *vcpu, uint32_t virq)
+{
+	return 0;
+}
+
+static int bcm2836_inject_spi(struct vcpu *vcpu, uint32_t virq)
+{
+
+}
+
+int bcm2836_send_virq(struct vcpu *vcpu, uint32_t virq)
+{
+	/* convert the hypervisor virq to bcm irq number */
+	switch (virq) {
+	case 0 ... 15:
+		bcm2836_inject_sgi(vcpu, virq);
+		break;
+	case 16 ... 31:
+		bcm2836_inject_ppi(vcpu, virq);
+		break;
+	case 32 ... 127:
+		bcm2836_inject_spi(vcpu, virq);
+		break;
+	default:
+		pr_error("unsupport bcm2836 virq number\n");
+		break;
+	}
+
+	return 0;
+}
+
 static int bcm_virq_create_vm(void *item, void *arg)
 {
 	struct vm *vm = item;

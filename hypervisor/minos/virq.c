@@ -463,6 +463,16 @@ static int irq_exit_from_guest(void *item, void *data)
 	return 0;
 }
 
+static int legacy_irq_exit_from_guest(void *item, void *data)
+{
+	return 0;
+}
+
+static int legacy_irq_exit_from_guest(void *item, void *data)
+{
+	return 0;
+}
+
 int vcpu_has_irq(struct vcpu *vcpu)
 {
 	struct virq_struct *vs = vcpu->virq_struct;
@@ -749,10 +759,17 @@ static int virq_destroy_vm(void *item, void *data)
 
 void virqs_init(void)
 {
+#ifndef CONFIG_LEGACY_INT_VIRT
 	register_hook(irq_exit_from_guest,
 			MINOS_HOOK_TYPE_EXIT_FROM_GUEST);
 	register_hook(irq_enter_to_guest,
 			MINOS_HOOK_TYPE_ENTER_TO_GUEST);
+#else
+	register_hook(legacy_irq_exit_from_guest,
+			MINOS_HOOK_TYPE_EXIT_FROM_GUEST);
+	register_hook(legacy_irq_enter_to_guest,
+			MINOS_HOOK_TYPE_ENTER_TO_GUEST);
+#endif
 
 	register_hook(virq_create_vm, MINOS_HOOK_TYPE_CREATE_VM);
 	register_hook(virq_destroy_vm, MINOS_HOOK_TYPE_DESTROY_VM);
